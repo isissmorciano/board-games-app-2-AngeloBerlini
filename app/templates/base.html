@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="en"></html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,19 +7,13 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-  <header>
-    <h1>Board Games App</h1>
-    <nav>
-      <a href="{{ url_for('index') }}">Home</a>
-      <a href="{{ url_for('new_game') }}">New Game</a>
-    </nav>
-  </header>
+  <nav>
+    <a href="{{ url_for('index') }}">Home</a>
+    <a href="{{ url_for('gioco_list') }}">Games</a>
+  </nav>
 
-  <main>
+  <div class="container">
     {% block content %}{% endblock %}
-  </main>
-
-  <footer>
-    <p>&copy; 2024 Board Games App</p>
-  </footer>
+  </div>
+</body>
 </html>
