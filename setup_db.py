@@ -5,7 +5,7 @@ import os
 if not os.path.exists("instance"):
     os.makedirs("instance")
 
-db_path = os.path.join("instance", "video_app.sqlite")
+db_path = os.path.join("instance", "games_app.sqlite")
 
 # Ci connettiamo (se il file non esiste, lo crea)
 connection = sqlite3.connect(db_path)

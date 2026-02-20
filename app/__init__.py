@@ -1,25 +1,32 @@
 import os
 from flask import Flask
 
+
 def create_app():
-    app = Flask(__name__)
+    # 1. Creiamo l'istanza di Flask
+    # instance_relative_config=True dice a Flask:
+    # "Cerca la cartella 'instance' fuori da 'app', non dentro."
+    app = Flask(__name__, instance_relative_config=True)
 
-    # Configuriamo il percorso del database
-    app.config["DATABASE"] = os.path.join(app.instance_path, "video_app.sqlite")
+    # 2. Configurazione di base
+    # Qui impostiamo le variabili fondamentali.
+    app.config.from_mapping(
+        # SECRET_KEY serve a Flask per firmare i dati sicuri (es. sessioni).
+        # 'dev' va bene per sviluppare, ma in produzione andrà cambiata.
+        SECRET_KEY="dev",
+        # Diciamo a Flask dove salvare il file del database SQLite
+        DATABASE=os.path.join(app.instance_path, "games_app.sqlite"),
+    )
 
-    # Assicuriamoci che la cartella instance esista
-    try:
-        os.makedirs(app.instance_path)
-    except OSError:
-        pass
+    # --- AGGIUNGI QUESTO ---
+    from . import db
 
-    # Importiamo e inizializziamo il modulo per il database
+    db.init_app(app)
+    # -----------------------
+
+    # --- REGISTRAZIONE BLUEPRINTS ---
     from . import main
-    main.init_app(app)
 
-    # Importiamo e registriamo i blueprint (le "sezioni" dell'app)
-    from . import routes
-    app.register_blueprint(routes.bp)
+    app.register_blueprint(main.bp)
 
     return app
-

@@ -1,84 +1,99 @@
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from werkzeug.exceptions import abort
+from app.repositories import games_repository
 
+# Usiamo 'main' perché è il blueprint principale del sito
 bp = Blueprint("main", __name__)
 
-def init_app(app):
-    app.register_blueprint(bp)
-
+# Visualizzare la lista dei giochi
 @bp.route("/")
 def index():
-    return render_template("index.html")
 
-#L'app deve permettere di: 1. Creare nuovi giochi da tavolo 2. Registrare partite per un gioco esistente 3. Visualizzare la lista dei giochi 4. Visualizzare la lista delle partite di un gioco
 
-@bp.route("/giochi")
-def giochi():
-    from .db import get_db
-    db = get_db()
-    giochi = db.execute("SELECT * FROM giochi").fetchall()
-    return render_template("giochi.html", giochi=giochi)
+    # 1. Prendiamo i canali dal database
+    games: list[dict] = games_repository.get_all_games()
 
-@bp.route("/giochi/crea", methods=["GET", "POST"])
-def crea_gioco():
+    # 2. Passiamo la variabile 'games' al template
+    return render_template("index.html", games=games)
+
+@bp.route("/channel/<int:id>")
+def channel_detail(id):
+    # 1. Prendiamo il canale
+    channel = games_repository.get_channel_by_id(id)
+    if channel is None:
+        abort(404, "Canale non trovato.")
+
+    # 2. Prendiamo i video del canale
+    videos = video_repository.get_videos_by_channel(id)
+
+    # 3. Passiamo al template
+    return render_template("channel_detail.html", channel=channel, videos=videos)
+
+
+@bp.route("/url_crea", methods=("GET", "POST"))
+def create_channel():
     if request.method == "POST":
         nome = request.form["nome"]
-        numero_giocatori_massimo = request.form["numero_giocatori_massimo"]
-        durata_media = request.form["durata_media"]
+        numero_iscritti = request.form.get("numero_iscritti", 0, type=int)
         categoria = request.form["categoria"]
+        error = None
 
         if not nome:
-            flash("Il nome è obbligatorio.")
-            return redirect(url_for("main.crea_gioco"))
+            error = "Il nome è obbligatorio."
+        if not categoria:
+            error = "La categoria è obbligatoria."
 
-        from .db import get_db
-        db = get_db()
-        db.execute(
-            "INSERT INTO giochi (nome, numero_giocatori_massimo, durata_media, categoria) VALUES (?, ?, ?, ?)",
-            (nome, numero_giocatori_massimo, durata_media, categoria)
-        )
-        db.commit()
-        flash("Gioco creato con successo!")
-        return redirect(url_for("main.giochi"))
+        if error is not None:
+            flash(error)
+        else:
+            # Creiamo il canale
+            games_repository.create_channel(nome, numero_iscritti, categoria)
+            return redirect(url_for("main.index"))
 
-    return render_template("crea_gioco.html")
+    return render_template("create_channel.html")
 
-@bp.route("/giochi/<int:gioco_id>/partite")
-def partite(gioco_id):
-    from .db import get_db
-    db = get_db()
-    gioco = db.execute("SELECT * FROM giochi WHERE id = ?", (gioco_id,)).fetchone()
-    if gioco is None:
-        abort(404, "Gioco non trovato.")
-    
-    partite = db.execute("SELECT * FROM partite WHERE gioco_id = ?", (gioco_id,)).fetchall()
-    return render_template("partite.html", gioco=gioco, partite=partite)
 
-@bp.route("/giochi/<int:gioco_id>/partite/crea", methods=["GET", "POST"])
-def crea_partita(gioco_id):
-    from .db import get_db
-    db = get_db()
-    gioco = db.execute("SELECT * FROM giochi WHERE id = ?", (gioco_id,)).fetchone()
-    if gioco is None:
-        abort(404, "Gioco non trovato.")
-
+@bp.route("/create_video", methods=("GET", "POST"))
+def create_video():
     if request.method == "POST":
-        data = request.form["data"]
-        vincitore = request.form["vincitore"]
-        punteggio_vincitore = request.form["punteggio_vincitore"]
+        canale_id = request.form.get("canale_id", type=int)
+        titolo = request.form["titolo"]
+        durata = request.form.get("durata", type=int)
+        immagine = request.form.get("immagine", "")
+        error = None
 
-        if not data or not vincitore or not punteggio_vincitore:
-            flash("Tutti i campi sono obbligatori.")
-            return redirect(url_for("main.crea_partita", gioco_id=gioco_id))
+        if not titolo:
+            error = "Il titolo è obbligatorio."
+        if durata is None or durata <= 0:
+            error = "La durata deve essere un numero positivo."
+        if canale_id is None:
+            error = "Seleziona un canale."
 
-        db.execute(
-            "INSERT INTO partite (gioco_id, data, vincitore, punteggio_vincitore) VALUES (?, ?, ?, ?)",
-            (gioco_id, data, vincitore, punteggio_vincitore)
-        )
-        db.commit()
-        flash("Partita registrata con successo!")
-        return redirect(url_for("main.partite", gioco_id=gioco_id))
+        if error is not None:
+            flash(error)
+        else:
+            # Creiamo il video
+            video_repository.create_video(canale_id, titolo, durata, immagine)
+            return redirect(url_for("main.channel_detail", id=canale_id))
 
-    return render_template("crea_partita.html", gioco=gioco)
+    # Per GET, passiamo i canali per il select
+    channels = games_repository.get_all_games()
+    return render_template("create_video.html", channels=channels)
 
+@bp.route("/create_category", methods=("GET", "POST"))
+def create_category():
+    if request.method == "POST":
+        nome = request.form["nome"]
+        error = None
 
+        if not nome:
+            error = "Il nome è obbligatorio."
+
+        if error is not None:
+            flash(error)
+        else:
+            # Creiamo la categoria
+            category_repository.create_category(nome)
+            return redirect(url_for("main.index"))
+
+    return render_template("create_category.html")
